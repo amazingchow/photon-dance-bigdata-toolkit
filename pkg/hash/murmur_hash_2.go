@@ -15,6 +15,9 @@ import "unsafe"
 	1. it will not work incrementally.
 	2. it will not produce the same result on little-endian / big-endian machine.
 */
+
+// More info: https://github.com/aappleby/smhasher/blob/master/src/MurmurHash2.h
+
 func murmur_hash_2(key string) uint32 {
 	// 'm' and 'r' are not really magic-number, they just happen to work well here.
 	const m uint32 = 0x5bd1e995
