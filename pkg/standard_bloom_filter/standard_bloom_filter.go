@@ -1,7 +1,6 @@
 package bloomfilter
 
 import (
-	"math"
 	"sync"
 
 	"github.com/rs/zerolog/log"
@@ -18,16 +17,13 @@ const (
 )
 
 const (
-	_ln2    float64 = 0.6931472
-	_ln_1_2 float64 = -0.693147
-	_p      float64 = 1e-6
-	_4g     uint64  = 4294967296
+	_ln2_div_3 float64 = 0.231049
 )
 
 // StandardBloomFilter implements the Standard-Bloom-Filter mentioned by
 // "Space/Time Trade-Offs in Hash Coding with Allowable Errors".
 type StandardBloomFilter struct {
-	mu sync.Mutex
+	mu sync.RWMutex
 
 	bset     []uint32
 	cap      uint32
@@ -76,7 +72,7 @@ func (bf *StandardBloomFilter) Insert(x string) {
 	defer bf.mu.Unlock()
 
 	if bf.readOnly {
-		log.Warn().Msgf("you should expand the capcity <cap: %d> to maintain false positive probability <p: %f>", bf.cap, _p)
+		log.Warn().Msgf("you should expand the capcity <cap: %d>", bf.cap)
 		return
 	}
 
@@ -86,13 +82,17 @@ func (bf *StandardBloomFilter) Insert(x string) {
 	log.Debug().Msgf("%s has been inserted", x)
 
 	bf.cnt++
-	if bf.exceedFalsePositiveProb() {
+	if bf.reachTheUpLimit() {
 		bf.readOnly = true
 	}
 }
 
 // Member checks whether the string item existed or not.
+// 不存在一定不存在, 存在可能不存在, 存在一定的误判率.
 func (bf *StandardBloomFilter) Member(x string) bool {
+	bf.mu.RLock()
+	defer bf.mu.RUnlock()
+
 	for _, h := range bf.hashCluster {
 		if bf.test(h(x)%bf.cap) == 0 {
 			log.Debug().Msgf("%s is not the member", x)
@@ -107,7 +107,8 @@ func (bf *StandardBloomFilter) set(i uint32) {
 	bf.bset[i>>_Shift] |= (1 << (i & _Mask))
 }
 
-func (bf *StandardBloomFilter) clear(i uint32) {
+// We should not do clear-op in StandardBloomFilter.
+func (bf *StandardBloomFilter) clear(i uint32) { // nolint
 	bf.bset[i>>_Shift] &= util.BitReverseUint32(1 << (i & _Mask))
 }
 
@@ -115,16 +116,14 @@ func (bf *StandardBloomFilter) test(i uint32) uint32 {
 	return bf.bset[i>>_Shift] & (1 << (i & _Mask))
 }
 
-// TODO: Resize
+// TODO: Resize the bset when StandardBloomFilter reaches the up-limitation
+
+// TODO: Add one more bset to record what we want them to be deleted
 
 /*
-	p ~= (1 - e^(-k*n/m))^k
-	k = (m/n) * ln2
-    -->
-	p ~= 2^(ln(1/2)*m/n), make x = ln(1/2)*m/n
+	p ~= (1 - e^(-k*n/m))^k, m = len(bset), n = cnt, k = num(hash_cluster)
+	if we want to make sure the p stay the resonable value, make n < m * ln2 / k
 */
-func (bf *StandardBloomFilter) exceedFalsePositiveProb() bool {
-	x := _ln_1_2 * float64(bf.cap) / float64(bf.cnt)
-	p := math.Pow(2.0, x)
-	return (1 / p) > _p
+func (bf *StandardBloomFilter) reachTheUpLimit() bool {
+	return float64(bf.cnt) >= float64(bf.cap)*_ln2_div_3
 }
