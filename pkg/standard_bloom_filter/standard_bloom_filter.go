@@ -27,7 +27,7 @@ const (
 // StandardBloomFilter implements the Standard-Bloom-Filter mentioned by
 // "Space/Time Trade-Offs in Hash Coding with Allowable Errors".
 type StandardBloomFilter struct {
-	mu sync.Mutex
+	mu sync.RWMutex
 
 	bset     []uint32
 	cap      uint32
@@ -93,6 +93,9 @@ func (bf *StandardBloomFilter) Insert(x string) {
 
 // Member checks whether the string item existed or not.
 func (bf *StandardBloomFilter) Member(x string) bool {
+	bf.mu.RLock()
+	defer bf.mu.RUnlock()
+
 	for _, h := range bf.hashCluster {
 		if bf.test(h(x)%bf.cap) == 0 {
 			log.Debug().Msgf("%s is not the member", x)
