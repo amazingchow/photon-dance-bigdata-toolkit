@@ -22,6 +22,9 @@ const (
 
 // StandardBloomFilter implements the Standard-Bloom-Filter mentioned by
 // "Space/Time Trade-Offs in Hash Coding with Allowable Errors".
+// More info:
+//     1) math  : http://pages.cs.wisc.edu/~cao/papers/summary-cache/node8.html
+//     2) usage : https://shuwoom.com/?p=857
 type StandardBloomFilter struct {
 	mu sync.RWMutex
 
