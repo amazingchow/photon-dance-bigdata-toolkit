@@ -6,8 +6,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestStandardBloomFilter(t *testing.T) {
-	bf := NewStandardBloomFilter(0)
+func TestBloomFilter(t *testing.T) {
+	bf := NewBloomFilter(0)
 	bf.Insert("foo")
 	assert.Equal(t, true, bf.Member("foo"))
 	bf.Insert("bar")

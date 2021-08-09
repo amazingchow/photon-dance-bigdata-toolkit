@@ -20,15 +20,17 @@ const (
 	_ln2_div_3 float64 = 0.231049
 )
 
-// StandardBloomFilter implements the Standard-Bloom-Filter mentioned by
+type BitSet []uint32
+
+// BloomFilter implements the Standard-Bloom-Filter mentioned by
 // "Space/Time Trade-Offs in Hash Coding with Allowable Errors".
 // More info:
 //     1) math  : http://pages.cs.wisc.edu/~cao/papers/summary-cache/node8.html
 //     2) usage : https://shuwoom.com/?p=857
-type StandardBloomFilter struct {
+type BloomFilter struct {
 	mu sync.RWMutex
 
-	bset     []uint32
+	bitset   BitSet
 	cap      uint32
 	cnt      uint64
 	readOnly bool
@@ -36,14 +38,14 @@ type StandardBloomFilter struct {
 	hashCluster []hash.HashFunc
 }
 
-func NewStandardBloomFilter(cap uint32) *StandardBloomFilter {
+func NewBloomFilter(cap uint32) *BloomFilter {
 	if cap == 0 {
 		cap = 1024 * 1024 * 256
 	}
-	cap = resizeInputCap(cap)
+	cap = resizeCap(cap)
 
-	return &StandardBloomFilter{
-		bset:        make([]uint32, (cap/_BitPerWord)+1),
+	return &BloomFilter{
+		bitset:      make([]uint32, (cap/_BitPerWord)+1),
 		cap:         cap,
 		cnt:         0,
 		readOnly:    false,
@@ -51,8 +53,8 @@ func NewStandardBloomFilter(cap uint32) *StandardBloomFilter {
 	}
 }
 
-func resizeInputCap(cap uint32) uint32 {
-	const twoMb uint32 = 2 * 1024 * 1024
+func resizeCap(cap uint32) uint32 {
+	const twoMb uint32 = 1024 * 1024 * 2
 
 	var x uint32 = twoMb
 	for cap > x {
@@ -70,19 +72,19 @@ func registerHashCluster() []hash.HashFunc {
 }
 
 // Insert inserts a string item.
-func (bf *StandardBloomFilter) Insert(x string) {
+func (bf *BloomFilter) Insert(x string) {
 	bf.mu.Lock()
 	defer bf.mu.Unlock()
 
 	if bf.readOnly {
-		log.Warn().Msgf("you should expand the capcity <cap: %d>", bf.cap)
+		log.Warn().Msgf("you should expand capcity for BloomFilter <current cap: %d>", bf.cap)
 		return
 	}
 
 	for _, h := range bf.hashCluster {
-		bf.set(h(x) % bf.cap)
+		bf.bitset.set(h(x) % bf.cap)
 	}
-	log.Debug().Msgf("%s has been inserted", x)
+	log.Debug().Msgf("%s has been inserted into BloomFilter", x)
 
 	bf.cnt++
 	if bf.reachTheUpLimit() {
@@ -92,12 +94,12 @@ func (bf *StandardBloomFilter) Insert(x string) {
 
 // Member checks whether the string item existed or not.
 // 不存在一定不存在, 存在可能不存在, 存在一定的误判率.
-func (bf *StandardBloomFilter) Member(x string) bool {
+func (bf *BloomFilter) Member(x string) bool {
 	bf.mu.RLock()
 	defer bf.mu.RUnlock()
 
 	for _, h := range bf.hashCluster {
-		if bf.test(h(x)%bf.cap) == 0 {
+		if bf.bitset.test(h(x)%bf.cap) == 0 {
 			log.Debug().Msgf("%s is not the member", x)
 			return false
 		}
@@ -106,27 +108,26 @@ func (bf *StandardBloomFilter) Member(x string) bool {
 	return true
 }
 
-func (bf *StandardBloomFilter) set(i uint32) {
-	bf.bset[i>>_Shift] |= (1 << (i & _Mask))
+func (bs BitSet) set(i uint32) {
+	bs[i>>_Shift] |= (1 << (i & _Mask))
 }
 
-// We should not do clear-op in StandardBloomFilter.
-func (bf *StandardBloomFilter) clear(i uint32) { // nolint
-	bf.bset[i>>_Shift] &= util.BitReverseUint32(1 << (i & _Mask))
+func (bs BitSet) clear(i uint32) {
+	bs[i>>_Shift] &= util.BitReverseUint32(1 << (i & _Mask))
 }
 
-func (bf *StandardBloomFilter) test(i uint32) uint32 {
-	return bf.bset[i>>_Shift] & (1 << (i & _Mask))
+func (bs BitSet) test(i uint32) uint32 {
+	return bs[i>>_Shift] & (1 << (i & _Mask))
 }
 
-// TODO: Resize the bset when StandardBloomFilter reaches the up-limitation
+// TODO: Resize the bitset when BloomFilter reaches the up-limitation
 
-// TODO: Add one more bset to record what we want them to be deleted
+// TODO: Add one more bitset to record what we want them to be deleted
 
 /*
-	p ~= (1 - e^(-k*n/m))^k, m = len(bset), n = cnt, k = num(hash_cluster)
+	p ~= (1 - e^(-k*n/m))^k, m = len(bitset), n = cnt, k = num(hash_cluster)
 	if we want to make sure the p stay the resonable value, make n < m * ln2 / k
 */
-func (bf *StandardBloomFilter) reachTheUpLimit() bool {
+func (bf *BloomFilter) reachTheUpLimit() bool {
 	return float64(bf.cnt) >= float64(bf.cap)*_ln2_div_3
 }
