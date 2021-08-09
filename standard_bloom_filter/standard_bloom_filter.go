@@ -5,8 +5,8 @@ import (
 
 	"github.com/rs/zerolog/log"
 
-	"github.com/amazingchow/photon-dance-bigdata-toolkit/pkg/hash"
-	"github.com/amazingchow/photon-dance-bigdata-toolkit/pkg/util"
+	"github.com/amazingchow/photon-dance-bigdata-toolkit/hash"
+	"github.com/amazingchow/photon-dance-bigdata-toolkit/util"
 )
 
 const (
