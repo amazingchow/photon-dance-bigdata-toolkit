@@ -35,22 +35,32 @@ type BloomFilter struct {
 	cnt      uint64
 	readOnly bool
 
+	markBitset  BitSet
+	markDeleted bool
+
 	hashCluster []hash.HashFunc
 }
 
-func NewBloomFilter(cap uint32) *BloomFilter {
+func NewBloomFilter(cap uint32, withMarkDeleted bool) *BloomFilter {
 	if cap == 0 {
 		cap = 1024 * 1024 * 256
 	}
 	cap = resizeCap(cap)
 
-	return &BloomFilter{
+	bf := &BloomFilter{
 		bitset:      make([]uint32, (cap/_BitPerWord)+1),
 		cap:         cap,
 		cnt:         0,
 		readOnly:    false,
 		hashCluster: registerHashCluster(),
 	}
+
+	if withMarkDeleted {
+		bf.markBitset = make([]uint32, (cap/_BitPerWord)+1)
+		bf.markDeleted = true
+	}
+
+	return bf
 }
 
 func resizeCap(cap uint32) uint32 {
@@ -77,14 +87,15 @@ func (bf *BloomFilter) Insert(x string) {
 	defer bf.mu.Unlock()
 
 	if bf.readOnly {
-		log.Warn().Msgf("you should expand capcity for BloomFilter <current cap: %d>", bf.cap)
+		log.Warn().Msgf("BloomFilter has reached the up-limit <cap: %d>", bf.cap)
+		log.Info().Msg(util.MemUsage())
 		return
 	}
 
 	for _, h := range bf.hashCluster {
 		bf.bitset.set(h(x) % bf.cap)
 	}
-	log.Debug().Msgf("%s has been inserted into BloomFilter", x)
+	log.Debug().Msgf("%s has been inserted", x)
 
 	bf.cnt++
 	if bf.reachTheUpLimit() {
@@ -104,8 +115,46 @@ func (bf *BloomFilter) Member(x string) bool {
 			return false
 		}
 	}
+
+	if bf.markDeleted {
+		hasMarked := true
+		for _, h := range bf.hashCluster {
+			if bf.markBitset.test(h(x)%bf.cap) == 0 {
+				hasMarked = false
+				break
+			}
+		}
+		if hasMarked {
+			return false
+		}
+	}
+
 	log.Debug().Msgf("%s is the member", x)
 	return true
+}
+
+func (bf *BloomFilter) member(x string) bool {
+	for _, h := range bf.hashCluster {
+		if bf.bitset.test(h(x)%bf.cap) == 0 {
+			return false
+		}
+	}
+	return true
+}
+
+// MarkDelete marks a string item as deleted if it already existed.
+func (bf *BloomFilter) MarkDelete(x string) {
+	bf.mu.Lock()
+	defer bf.mu.Unlock()
+
+	if !bf.markDeleted || !bf.member(x) {
+		return
+	}
+
+	for _, h := range bf.hashCluster {
+		bf.markBitset.set(h(x) % bf.cap)
+	}
+	log.Debug().Msgf("%s has been marked deleted", x)
 }
 
 func (bs BitSet) set(i uint32) {
@@ -119,10 +168,6 @@ func (bs BitSet) clear(i uint32) {
 func (bs BitSet) test(i uint32) uint32 {
 	return bs[i>>_Shift] & (1 << (i & _Mask))
 }
-
-// TODO: Resize the bitset when BloomFilter reaches the up-limitation
-
-// TODO: Add one more bitset to record what we want them to be deleted
 
 /*
 	p ~= (1 - e^(-k*n/m))^k, m = len(bitset), n = cnt, k = num(hash_cluster)

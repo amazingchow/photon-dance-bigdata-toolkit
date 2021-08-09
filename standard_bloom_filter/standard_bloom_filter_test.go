@@ -7,11 +7,14 @@ import (
 )
 
 func TestBloomFilter(t *testing.T) {
-	bf := NewBloomFilter(0)
-	bf.Insert("foo")
-	assert.Equal(t, true, bf.Member("foo"))
-	bf.Insert("bar")
-	assert.Equal(t, true, bf.Member("bar"))
-	assert.Equal(t, false, bf.Member("foobar"))
-	assert.Equal(t, false, bf.Member("barbar"))
+	bf := NewBloomFilter(0, true)
+	bf.Insert("BTC")
+	assert.Equal(t, true, bf.Member("BTC"))
+	bf.Insert("ETH")
+	assert.Equal(t, true, bf.Member("ETH"))
+	assert.Equal(t, false, bf.Member("PHA"))
+	bf.Insert("PHA")
+	assert.Equal(t, true, bf.Member("PHA"))
+	bf.MarkDelete("PHA")
+	assert.Equal(t, false, bf.Member("PHA"))
 }
