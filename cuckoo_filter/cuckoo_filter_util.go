@@ -2,7 +2,6 @@ package cuckoofilter
 
 import (
 	"math/rand"
-	"reflect"
 	"unsafe"
 
 	"github.com/amazingchow/photon-dance-bigdata-toolkit/hash"
@@ -48,11 +47,6 @@ func RandomlySelect(i1, i2 uint) uint {
 }
 
 // Bytes2String fast type conversion from byte array to string, both share the same mem pointer.
-func Bytes2String(b []byte) string {
-	sliceHeader := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-	sh := reflect.StringHeader{
-		Data: sliceHeader.Data,
-		Len:  sliceHeader.Len,
-	}
-	return *(*string)(unsafe.Pointer(&sh))
+func Bytes2String(buf []byte) string {
+	return *(*string)(unsafe.Pointer(&buf))
 }

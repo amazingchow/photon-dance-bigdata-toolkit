@@ -161,7 +161,7 @@ func (bs BitSet) set(i uint32) {
 	bs[i>>_Shift] |= (1 << (i & _Mask))
 }
 
-func (bs BitSet) clear(i uint32) {
+func (bs BitSet) clear(i uint32) { //nolint
 	bs[i>>_Shift] &= util.BitReverseUint32(1 << (i & _Mask))
 }
 
