@@ -19,6 +19,10 @@ func fnv_1_32(key string) uint32 {
 	return hash
 }
 
+func FNV132(key string) uint32 {
+	return fnv_1_32(key)
+}
+
 /*
 	hash = offset_basis
 	for each octet_of_data to be hashed
@@ -34,4 +38,8 @@ func fnv_1a_32(key string) uint32 {
 		hash *= prime32
 	}
 	return hash
+}
+
+func FNV1A32(key string) uint32 {
+	return fnv_1a_32(key)
 }

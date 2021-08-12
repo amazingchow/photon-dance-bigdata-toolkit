@@ -69,3 +69,7 @@ func murmur_hash_2(key string) uint32 {
 
 	return h
 }
+
+func MURMUR2(key string) uint32 {
+	return murmur_hash_2(key)
+}
