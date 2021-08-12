@@ -1,5 +1,7 @@
 # photon-dance-bigdata-toolkit
 
+![big data toolkit](doc/big_data_toolkit.png)
+
 ## Contributing
 
 ### Step 1
