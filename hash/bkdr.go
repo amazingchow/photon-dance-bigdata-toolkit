@@ -10,3 +10,7 @@ func bkdr_hash(key string) uint32 {
 	}
 	return (hash & 0x7fffffff)
 }
+
+func BKDR(key string) uint32 {
+	return bkdr_hash(key)
+}
