@@ -2,6 +2,11 @@
 
 ![big data toolkit](doc/big_data_toolkit.png)
 
+## Tool List
+
+- [x] Bloom Filter
+- [x] Cuckoo Filter
+
 ## Contributing
 
 ### Step 1
