@@ -6,6 +6,7 @@
 
 - [x] Bloom Filter
 - [x] Cuckoo Filter
+- [x] SimHash
 
 ## Contributing
 
